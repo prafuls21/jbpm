@@ -1,0 +1,439 @@
+import org.apache.catalina.Context;
+import org.apache.catalina.startup.Tomcat;
+import org.apache.tomcat.util.descriptor.web.ContextResource;
+import org.kie.server.services.api.KieServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.web.embedded.tomcat.TomcatWebServer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
+import org.springframework.jndi.JndiObjectFactoryBean;
+
+import javax.naming.NamingException;
+import javax.sql.DataSource;
+
+@SpringBootApplication
+public class KieServerApplication {
+
+    private static final Logger log = LoggerFactory.getLogger(KieServerApplication.class);
+
+    public static void main(String[] args) throws NamingException {
+        log.info("Starting  things");
+        SpringApplication.run(KieServerApplication.class, args);
+    }
+
+
+    @Autowired
+    private Environment env;
+
+
+    @Bean
+    public TomcatServletWebServerFactory tomcatFactory() {
+
+
+
+        return new TomcatServletWebServerFactory() {
+
+
+
+            @Override
+            protected TomcatWebServer getTomcatWebServer(
+                    Tomcat tomcat) {
+                tomcat.enableNaming();
+                return super.getTomcatWebServer(tomcat);
+            }
+
+            @Override
+            protected void postProcessContext(Context context) {
+
+                final ContextResource jbpmProjectDs = new ContextResource();
+                jbpmProjectDs.setName("jdbc/jbpmProjectDs");
+                jbpmProjectDs.setType(DataSource.class.getName());
+                jbpmProjectDs.setProperty("driverClassName", "com.mysql.cj.jdbc.Driver");
+                jbpmProjectDs.setProperty("url",env.getProperty("spring.mamodb.datasource.url"));
+                marjoryDs.setProperty("username", env.getProperty("spring.mamodb.datasource.username"));
+                jbpmProjectDs.setProperty("password", env.getProperty("spring.mamodb.datasource.password"));
+                context.getNamingResources().addResource(jbpmProjectDs);
+
+                final ContextResource narayanaTransactionManager = new ContextResource();
+                narayanaTransactionManager.setName("TransactionManager");
+                narayanaTransactionManager.setType(javax.transaction.TransactionManager.class.getName());
+                narayanaTransactionManager.setProperty("factory","org.jboss.narayana.tomcat.jta.TransactionManagerFactory");
+                context.getNamingResources().addResource(narayanaTransactionManager);
+
+                final ContextResource transactionSynchronizationRegistry = new ContextResource();
+                transactionSynchronizationRegistry.setName("TransactionSynchronizationRegistry");
+                transactionSynchronizationRegistry.setType(javax.transaction.TransactionSynchronizationRegistry.class.getName());
+                transactionSynchronizationRegistry.setProperty("factory","org.jboss.narayana.tomcat.jta.TransactionSynchronizationRegistryFactory");
+                context.getNamingResources().addResource(transactionSynchronizationRegistry);
+
+
+            }
+        };
+    }
+
+    @Bean(destroyMethod = "")
+    public DataSource jndiDataSource() throws IllegalArgumentException, NamingException {
+        JndiObjectFactoryBean bean = new JndiObjectFactoryBean();
+        bean.setJndiName("java:comp/env/jdbc/jbpmProjectDs");
+        bean.setProxyInterface(DataSource.class);
+        bean.setLookupOnStartup(false);
+        bean.afterPropertiesSet();
+        return (DataSource) bean.getObject();
+    }
+
+    @Bean
+    CommandLineRunner deployAndValidate() {
+
+        return new CommandLineRunner() {
+            @Autowired
+            private KieServer kieServer;
+
+            @Override
+            public void run(String... strings) {
+                log.info("KieServer {} started", kieServer);
+            }
+        };
+    }
+}
+** properties Config **
+
+#transaction manager configuration
+spring.jta.narayana.transaction-manager-id="1"
+narayana.transaction-manager-id=1
+narayana.dbcp.enabled=true
+narayana.dbcp.maxTotal=20
+spring.jta.log-dir=./target/tx-object-store
+narayana.periodic-recovery-period=10
+narayana.recovery-backoff-period=10
+POM file just for dependencies:
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.kie</groupId>
+    <artifactId>kie-spring-boot-samples</artifactId>
+    <version>7.29.0.Final</version>
+  </parent>
+  <artifactId>kie-server</artifactId>
+
+  <name>KIE Server</name>
+  <description>KIE Server SpringBoot </description>
+
+  <properties>
+        <version.org.keycloak>5.0.0</version.org.keycloak>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-server-spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.tomcat</groupId>
+      <artifactId>tomcat-dbcp</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.keycloak</groupId>
+      <artifactId>keycloak-spring-boot-starter</artifactId>
+      <exclusions>
+        <exclusion>
+          <artifactId>commons-logging</artifactId>
+          <groupId>commons-logging</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.webjars</groupId>
+      <artifactId>swagger-ui</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-rs-service-description-swagger</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.cxf</groupId>
+          <artifactId>cxf-rt-rs-service-description-swagger-ui</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>io.swagger</groupId>
+      <artifactId>swagger-jaxrs</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>javax.ws.rs</groupId>
+          <artifactId>jsr311-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+
+    <!-- test dependencies -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>net.minidev</groupId>
+          <artifactId>accessors-smart</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.vaadin.external.google</groupId>
+          <artifactId>android-json</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.skyscreamer</groupId>
+          <artifactId>jsonassert</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.kie.server</groupId>
+      <artifactId>kie-server-client</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jboss.spec.javax.ws.rs</groupId>
+          <artifactId>jboss-jaxrs-api_2.1_spec</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>jcl-over-slf4j</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.narayana.tomcat</groupId>
+      <artifactId>tomcat-jta</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss</groupId>
+      <artifactId>jboss-transaction-spi</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.spec.javax.transaction</groupId>
+      <artifactId>jboss-transaction-api_1.2_spec</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>jaxen</groupId>
+      <artifactId>jaxen</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>pull-parser</groupId>
+      <artifactId>pull-parser</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.javassist</groupId>
+      <artifactId>javassist</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.github.relaxng</groupId>
+      <artifactId>relaxngDatatype</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.reflections</groupId>
+      <artifactId>reflections</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>xml-apis</groupId>
+      <artifactId>xml-apis</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>dom4j</groupId>
+      <artifactId>dom4j</artifactId>
+    </dependency>
+  </dependencies>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>dom4j</groupId>
+        <artifactId>dom4j</artifactId>
+        <version>1.6.1</version>
+      </dependency>
+      <dependency>
+        <groupId>org.reflections</groupId>
+        <artifactId>reflections</artifactId>
+        <version>0.9.10</version>
+      </dependency>
+      <dependency>
+        <groupId>xml-apis</groupId>
+        <artifactId>xml-apis</artifactId>
+        <version>1.4.01</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jboss.narayana.tomcat</groupId>
+        <artifactId>tomcat-jta</artifactId>
+        <version>5.9.0.Final</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp</artifactId>
+        <version>3.4.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.keycloak.bom</groupId>
+        <artifactId>keycloak-adapter-bom</artifactId>
+        <version>${version.org.keycloak}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>8.0.17</version>
+      </dependency>
+      <dependency>
+        <groupId>io.marjory</groupId>
+        <artifactId>model</artifactId>
+        <version>1.0.99-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>io.marjory</groupId>
+        <artifactId>marjory-jta</artifactId>
+        <version>0.0.2</version>
+      </dependency>
+      <dependency>
+        <groupId>org.webjars</groupId>
+        <artifactId>swagger-ui</artifactId>
+        <version>2.1.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.cxf</groupId>
+        <artifactId>cxf-rt-rs-service-description-swagger</artifactId>
+        <version>${version.org.apache.cxf}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-jdbc</artifactId>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.tomcat</groupId>
+        <artifactId>tomcat-dbcp</artifactId>
+        <version>8.0.23</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.jboss</groupId>
+        <artifactId>jboss-transaction-spi</artifactId>
+        <version>7.6.0.Final</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jboss.spec.javax.transaction</groupId>
+        <artifactId>jboss-transaction-api_1.2_spec</artifactId>
+        <version>1.1.1.Final</version>
+      </dependency>
+      <dependency>
+        <groupId>jaxen</groupId>
+        <artifactId>jaxen</artifactId>
+        <version>1.2.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.9</version>
+      </dependency>
+      <dependency>
+        <groupId>pull-parser</groupId>
+        <artifactId>pull-parser</artifactId>
+        <version>2.1.10</version>
+      </dependency>
+      <dependency>
+        <groupId>org.javassist</groupId>
+        <artifactId>javassist</artifactId>
+        <version>3.20.0-GA</version>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>1.8.17</version>
+      </dependency>
+      <dependency>
+        <groupId>com.github.relaxng</groupId>
+        <artifactId>relaxngDatatype</artifactId>
+        <version>2011.1</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <profiles>
+    <profile>
+      <id>mysql</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+    </profile>
+
+    <profile>
+      <id>QuickBuild</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.8.1</version>
+            <configuration>
+              <source>1.8</source>
+              <target>1.8</target>
+              <includes>
+                <include>com/marjory/kie/server/*.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+          <plugin>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>go-to-hell</id>
+                <phase>none</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+</project>
