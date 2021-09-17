@@ -1,0 +1,50 @@
+https://stackoverflow.com/questions/61735853/spring-to-spring-boot-migration-embedded-spring-data-source
+
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ApplicationObjectSupport;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.MutablePropertySources;
+import org.springframework.core.env.PropertySource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.context.support.StandardServletEnvironment;
+
+@Component
+public class EnvironmentLogger extends ApplicationObjectSupport {
+
+    @Override
+    protected void initApplicationContext(ApplicationContext context) throws BeansException {
+        Environment environment = context.getEnvironment();
+        String[] profiles = environment.getActiveProfiles();
+        if(profiles != null && profiles.length > 0) {
+            for (String profile : profiles) {
+               System.out.print(profile);
+            }           
+        } else {
+            System.out.println("Setting default profile");
+        }
+
+        //Print the profile properties
+        if(environment != null && environment instanceof StandardServletEnvironment) {
+            StandardServletEnvironment env = (StandardServletEnvironment)environment;
+            MutablePropertySources mutablePropertySources = env.getPropertySources();
+            if(mutablePropertySources != null) {
+                for (PropertySource<?> propertySource : mutablePropertySources) {
+                    if(propertySource instanceof MapPropertySource) {
+                        MapPropertySource mapPropertySource = (MapPropertySource)propertySource;
+                        if(mapPropertySource.getPropertyNames() != null) {
+                            System.out.println(propertySource.getName());
+                            String[] propertyNames = mapPropertySource.getPropertyNames();
+                            for (String propertyName : propertyNames) {
+                                Object val = mapPropertySource.getProperty(propertyName);
+                                System.out.print(propertyName);
+                                System.out.print(" = " + val);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}s
