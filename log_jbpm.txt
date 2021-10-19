@@ -1,0 +1,55 @@
+Hi,
+
+Yes, we have to use 'getLogger(String)' method. like as:
+
+~~~~
+
+Logger logger = null;
+
+logger = Logger.getLogger("Logger");
+
+logger.info("Process Name:-"+kcontext.getProcessInstance().getProcessName());
+
+logger.info("Node Name:-"+kcontext.getNodeInstance().getNodeName())
+
+~~~~
+
+It will capture logging like as:
+
+=============
+
+11:26:33,995 INFO  [Logger] (http-localhost.localdomain/127.0.0.1:8080-2) Process Name:-DemoProcess
+
+11:26:33,995 INFO  [Logger] (http-localhost.localdomain/127.0.0.1:8080-2) Node Name:-Script Task
+
+11:26:33,995 INFO  [Logger] (http-localhost.localdomain/127.0.0.1:8080-2) Process InstanceID=8
+
+=============
+
+So its really difficult to track logging when we you have multiple process instances running with multiple script tasks. So I will suggest to create logger object like as:
+
+~~~~
+
+Logger logger = null;
+
+logger = Logger.getLogger(kcontext.getProcessInstance().getProcessName()+"|"+kcontext.getNodeInstance().getNodeName()+"|"+kcontext.getProcessInstance().getId());
+
+~~~~
+
+It will capture logging like as:
+
+=============
+
+11:32:46,174 INFO  [DemoProcess|Script Task|10] (http-localhost.localdomain/127.0.0.1:8080-1) Process Name:-DemoProcess
+
+. .
+
+=============
+
+With this logging you can easily check processName,NodeName and ProcessInstanceId.
+
+ 
+
+org.slf4j.Logger logger = null;
+logger =  org.slf4j.LoggerFactory.getLogger("com.jbpm.log");
+logger.info("Logger:: Test!!");
