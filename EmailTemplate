@@ -1,4 +1,10 @@
-
+{
+    "firstName":"Praful",	
+    "lastName":"S",
+     "location":"test",
+     	"emails":[{"firstName":"Praful",	
+    "lastName":"S","email":"prafultest21@gmail.com"}]
+}
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
